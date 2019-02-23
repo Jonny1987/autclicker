@@ -155,7 +155,7 @@ parse_args() {
           shift
           ;;
         -m)
-          minimise_terminal=true
+          minimise_terminal=false
           shift
           ;;
         -s)
@@ -201,7 +201,7 @@ trap end_script EXIT
 add_locations=false
 ask_locations=false
 onetime_variables=false
-minimise_terminal=false
+minimise_terminal=true
 subset_start=0
 subset_end=0
 
@@ -217,6 +217,7 @@ current_term=$(xdotool getwindowfocus getwindowname)
 if [ $minimise_terminal = true ]
 then
     wmctrl -r $current_term -b remove,maximized_horz && wmctrl -r $current_term -b remove,maximized_vert && sleep 0.1 && resize -s 1 20 > /dev/null
+    wmctrl -r $current_term -e 0,67,27,-1,-1
     wmctrl -r $current_term -b add,above > /dev/null
 fi
 
