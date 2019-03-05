@@ -67,7 +67,7 @@ click_and_wait() {
     do
         if [ $num -le $subset_end ]
         then
-            radius=10
+            radius=5
             mod=$((radius + 1))
             this_x=$((${X_coords[$num]} + RANDOM % mod - radius / 2))
             this_y=$((${Y_coords[$num]} + RANDOM % mod - radius / 2))
@@ -191,7 +191,7 @@ parse_args() {
 end_script() {
     if [ $minimise_terminal = true ]
     then
-        resize -s 26 101 > /dev/null
+        resize -s 1 80 > /dev/null
         wmctrl -r $current_term -b remove,above > /dev/null
     fi
 }
