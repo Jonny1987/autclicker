@@ -4,6 +4,12 @@
 
 #name=$1
 
+get_max_run_i() {
+    max_run_no=$(printf "%d\n" "${run_no[@]}" | sort -nr | head -n1)
+    max_run_no_i=$(echo "${run_no[@]/$max_run_no//}" | cut -d/ -f1 | wc -w)
+    echo $max_run_no_i
+}
+
 ask_locations() {
     number_locations=$1
     X_return=()
@@ -67,11 +73,17 @@ click_and_wait() {
     do
         if [ $num -le $subset_end ]
         then
-            radius=5
-            mod=$((radius + 1))
-            this_x=$((${X_coords[$num]} + RANDOM % mod - radius / 2))
-            this_y=$((${Y_coords[$num]} + RANDOM % mod - radius / 2))
-            xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
+            group=${i_to_grp[$num]}
+            group_run_no=${run_no[$group]}
+
+            if [ $group_run_no -gt 0 ]
+            then
+                radius=5
+                mod=$((radius + 1))
+                this_x=$((${X_coords[$num]} + RANDOM % mod - radius / 2))
+                this_y=$((${Y_coords[$num]} + RANDOM % mod - radius / 2))
+                xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
+            fi
         else
             wmctrl -a $current_term
             remainder=$(echo "$loops_waited % $loops_per_second" | bc)
@@ -107,6 +119,10 @@ click_and_wait() {
     done
 }
 
+save_vars() {
+    declare -p repeats i_to_grp run_no delay X_coords Y_coords > $vars_path
+}
+
 auto_click() {
     escape=0
     loop_sleep=0.1
@@ -114,14 +130,25 @@ auto_click() {
     button_duration=1
     delay_loops=$(awk "BEGIN {print $delay / $loop_sleep}")
     total_loops=$(($delay_loops + $subset_end))
-    while [ $run_no -gt  0 ]
+
+    max_run_i=$(get_max_run_i)
+
+    while [ ${run_no[$max_run_i]} -gt  0 ]
     do
-        run_no=$(($run_no - 1))
-        declare -p repeats run_no delay X_coords Y_coords > $vars_path
-        printf "\n"$run_no" "
+        save_vars
+
+        printf "\n$(echo ${run_no[@]}' ')"
 
         loops_waited=0
         click_and_wait
+
+        for i in ${!run_no[@]}
+        do
+            if [ ${run_no[$i]} -gt 0 ]
+            then
+                let "run_no[i]-=1"
+            fi
+        done
     done
 }
 
@@ -129,21 +156,52 @@ add_locations() {
     ask_locations $1 $2
     X_coords=( "${X_coords[@]:0:$2}" "${X_return[@]}" "${X_coords[@]:$2}" )
     Y_coords=( "${Y_coords[@]:0:$2}" "${Y_return[@]}" "${Y_coords[@]:$2}" )
-    declare -p repeats run_no delay X_coords Y_coords > $vars_path
+    save_vars
 }
 
 parse_args() {
     PARAMS=""
     while (( "$#" )); do
       case "$1" in
+        -g)
+          shift 1
+          ask_locations=true
+          i_to_grp=()
+          total_n=0
+          i=1
+          while [[ ${!i} =~ ^[0-9]+$ ]]
+          do
+              grp_n=${!i}
+              let "total_n+=grp_n"
+              grp=$((i - 1))
+              for j in $(seq 1 $grp_n)
+              do
+                  i_to_grp+=($grp)
+              done
+              let "i+=1"
+          done
+
+          number=$total_n
+
+          shift $((i - 1))
+          ;;
+        -r)
+          shift 1
+          run_no=()
+          i=1
+          while [[ ${!i} =~ ^[0-9]+$ ]]
+          do
+              grp_r=${!i}
+              run_no+=($grp_r)
+              let "i+=1"
+          done
+
+          groups=${#run_no[@]}
+          shift $i
+          ;;
         -n)
           number=$2
           ask_locations=true
-          shift 2
-          ;;
-        -r)
-          repeats=$2
-          run_no=$repeats
           shift 2
           ;;
         -d)
@@ -165,9 +223,10 @@ parse_args() {
           ;;
         -a)
           add_locations=true
-          number_locations=$2
-          position_locations=$3
-          shift 3
+          add_to_group=$2
+          number_locations=$3
+          position_locations=$4
+          shift 4
           ;;
         --) # end argument parsing
           shift
@@ -201,7 +260,7 @@ trap end_script EXIT
 add_locations=false
 ask_locations=false
 onetime_variables=false
-minimise_terminal=true
+minimise_terminal=false
 subset_start=0
 subset_end=0
 
@@ -237,12 +296,12 @@ fi
 
 if [ $onetime_variables = false ]
 then
-    declare -p repeats run_no delay X_coords Y_coords > $vars_path
+    save_vars
 fi
 
 if [ $add_locations = true ]
 then
-    add_locations $number_locations $position_locations
+    add_locations $number_locations $position_locations $group_add
 else
     auto_click
 fi
