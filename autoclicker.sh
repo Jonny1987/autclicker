@@ -197,6 +197,11 @@ parse_args() {
           done
 
           groups=${#run_no[@]}
+          if [ ${#groups[@]} -ne ${i_to_grp[-1]} ]
+          then
+              echo "number of digits in the -r arg must match number of digits in the -g arg"
+              exit
+          fi
           shift $i
           ;;
         -n)
