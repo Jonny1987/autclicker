@@ -69,36 +69,43 @@ pause_until_keypress() {
 
 
 click_and_wait() {
-    for num in $(seq $subset_start $total_loops)
+    index=0
+    for grp in ${!grp_ns[@]}
     do
-        if [ $num -le $subset_end ]
-        then
-            group=${i_to_grp[$num]}
-            group_run_no=${run_no[$group]}
+        grp_n=${grp_ns[$grp]}
+
+        for ((j=1; j<=$grp_n; ++j))
+        do
+            group_run_no=${run_no[$grp]}
 
             if [ $group_run_no -gt 0 ]
             then
                 radius=5
                 mod=$((radius + 1))
-                this_x=$((${X_coords[$num]} + RANDOM % mod - radius / 2))
-                this_y=$((${Y_coords[$num]} + RANDOM % mod - radius / 2))
+                this_x=$((${X_coords[$index]} + RANDOM % mod - radius / 2))
+                this_y=$((${Y_coords[$index]} + RANDOM % mod - radius / 2))
                 xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
             fi
-        else
-            wmctrl -a $current_term
-            remainder=$(echo "$loops_waited % $loops_per_second" | bc)
-            if [ $remainder -eq 0 ]
+            let "index+=1"
+        done
+    done
+
+    for ((i=1; i<=$delay_loops; ++i))
+    do
+        wmctrl -a $current_term
+        remainder=$(echo "$loops_waited % $loops_per_second" | bc)
+        if [ $remainder -eq 0 ]
+        then
+            if [ $loops_waited -eq 0 ]
             then
-                if [ $loops_waited -eq 0 ]
-                then
-                    printf $delay
-                else
-                    printf $(($delay - $loops_waited / $loops_per_second))
-                fi
+                printf $delay
+            else
+                printf $(($delay - $loops_waited / $loops_per_second))
             fi
-            sleep $loop_sleep 
-            loops_waited=$(($loops_waited + 1))
         fi
+        sleep $loop_sleep 
+        loops_waited=$(($loops_waited + 1))
+    done
 
         if [ $escape -eq 10 ]
         then
@@ -116,11 +123,10 @@ click_and_wait() {
         else
             escape=0
         fi
-    done
 }
 
 save_vars() {
-    declare -p repeats i_to_grp run_no delay X_coords Y_coords > $vars_path
+    declare -p grp_ns run_no delay X_coords Y_coords > $vars_path
 }
 
 auto_click() {
@@ -128,8 +134,8 @@ auto_click() {
     loop_sleep=0.1
     loops_per_second=$(echo "1 / $loop_sleep" | bc)
     button_duration=1
+    click_loops=$((${#X_coords[@]} - 1))
     delay_loops=$(awk "BEGIN {print $delay / $loop_sleep}")
-    total_loops=$(($delay_loops + $subset_end))
 
     max_run_i=$(get_max_run_i)
 
@@ -166,18 +172,14 @@ parse_args() {
         -g)
           shift 1
           ask_locations=true
-          i_to_grp=()
+          grp_ns=()
           total_n=0
           i=1
           while [[ ${!i} =~ ^[0-9]+$ ]]
           do
               grp_n=${!i}
+              grp_ns+=($grp_n)
               let "total_n+=grp_n"
-              grp=$((i - 1))
-              for j in $(seq 1 $grp_n)
-              do
-                  i_to_grp+=($grp)
-              done
               let "i+=1"
           done
 
@@ -197,12 +199,12 @@ parse_args() {
           done
 
           groups=${#run_no[@]}
-          if [ ${#groups[@]} -ne ${i_to_grp[-1]} ]
+          if [ $groups -ne ${#grp_ns[@]} ]
           then
               echo "number of digits in the -r arg must match number of digits in the -g arg"
               exit
           fi
-          shift $i
+          shift $((i - 1))
           ;;
         -n)
           number=$2
@@ -210,6 +212,7 @@ parse_args() {
           shift 2
           ;;
         -d)
+          echo hello
           delay=$2
           shift 2
           ;;
@@ -220,11 +223,6 @@ parse_args() {
         -m)
           minimise_terminal=false
           shift
-          ;;
-        -s)
-          subset_start=$2
-          subset_end=$3
-          shift 3
           ;;
         -a)
           add_locations=true
@@ -266,13 +264,15 @@ add_locations=false
 ask_locations=false
 onetime_variables=false
 minimise_terminal=false
-subset_start=0
-subset_end=0
 
 script_dir="${BASH_SOURCE%/*}/"
 
 vars_path=$script_dir"vars"
-source $vars_path
+
+if [ -f $vars_path ]
+then
+    source $vars_path
+fi
 
 parse_args $@
 
@@ -292,11 +292,6 @@ then
     Y_coords=()
     X_coords=( "${X_return[@]}" )
     Y_coords=( "${Y_return[@]}" )
-fi
-
-if [ $subset_end -eq 0 ]
-then
-    subset_end=$((${#X_coords[@]} - 1))
 fi
 
 if [ $onetime_variables = false ]
