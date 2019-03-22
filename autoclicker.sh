@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# hint: use "xdotool getmouselocation" to get values
 ## hold down Escape key to exit
-
-#name=$1
 
 get_max_run_i() {
     max_run_no=$(printf "%d\n" "${run_no[@]}" | sort -nr | head -n1)
@@ -10,7 +7,33 @@ get_max_run_i() {
     echo $max_run_no_i
 }
 
-ask_locations() {
+ask_balance_locations() {
+    bal_loc_x=()
+    count=0
+
+    for ((g=0; g<groups; ++g))
+    do
+        echo "highlight balance area for group $g"
+        read -r bal_loc[$g] < <(slop -f "%g")
+        xdotool mousemove_relative 1 1
+        balance=$(get_grp_balance $g)
+
+        if [ -z $balance ]
+        then
+            let "count+=1"
+            let "g-=1"
+            echo "Please redo group $g"
+        fi
+    done
+}
+
+get_grp_balance() {
+    group=$1
+    maim -g ${bal_loc[$group]} balance_$group.png -m 10
+    echo $(./get_balance.sh balance_$group.png)
+}
+
+ask_click_locations() {
     number_locations=$1
     X_return=()
     Y_return=()
@@ -88,6 +111,15 @@ click_and_wait() {
             fi
             let "index+=1"
         done
+
+        new_balances[$grp]=$(get_grp_balance $grp)
+        if (( $( echo "${new_balances[$grp]} < ${balances[$grp]}" | bc -l) ))
+        then
+            if [ ${run_no[$grp]} -gt 0 ]
+            then
+                let "run_no[grp]-=1"
+            fi
+        fi
     done
 
     for ((i=1; i<=$delay_loops; ++i))
@@ -126,7 +158,7 @@ click_and_wait() {
 }
 
 save_vars() {
-    declare -p grp_ns run_no delay X_coords Y_coords > $vars_path
+    declare -p bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
 }
 
 auto_click() {
@@ -139,27 +171,28 @@ auto_click() {
 
     max_run_i=$(get_max_run_i)
 
-    while [ ${run_no[$max_run_i]} -gt  0 ]
-    do
-        save_vars
+    balances=() 
 
+    groups=${#run_no[@]}
+    for ((g=0; g<groups; ++g))
+    do
+        balances[$g]=$(get_grp_balance $g)
+    done
+
+    new_balances=()
+
+    while [ ${run_no[$max_run_i]} -gt 0 ]
+    do
+        #save_vars
         printf "\n$(echo ${run_no[@]}' ')"
 
         loops_waited=0
         click_and_wait
-
-        for i in ${!run_no[@]}
-        do
-            if [ ${run_no[$i]} -gt 0 ]
-            then
-                let "run_no[i]-=1"
-            fi
-        done
     done
 }
 
 add_locations() {
-    ask_locations $1 $2
+    ask_click_locations $1 $2
     X_coords=( "${X_coords[@]:0:$2}" "${X_return[@]}" "${X_coords[@]:$2}" )
     Y_coords=( "${Y_coords[@]:0:$2}" "${Y_return[@]}" "${Y_coords[@]:$2}" )
     save_vars
@@ -171,7 +204,8 @@ parse_args() {
       case "$1" in
         -g)
           shift 1
-          ask_locations=true
+          ask_click_locations=true
+          ask_balance_locations=true
           grp_ns=()
           total_n=0
           i=1
@@ -208,11 +242,10 @@ parse_args() {
           ;;
         -n)
           number=$2
-          ask_locations=true
+          ask_click_locations=true
           shift 2
           ;;
         -d)
-          echo hello
           delay=$2
           shift 2
           ;;
@@ -261,9 +294,10 @@ end_script() {
 trap end_script EXIT
 
 add_locations=false
-ask_locations=false
+ask_balance_locations=false
+ask_click_locations=false
 onetime_variables=false
-minimise_terminal=false
+minimise_terminal=true
 
 script_dir="${BASH_SOURCE%/*}/"
 
@@ -285,13 +319,18 @@ then
     wmctrl -r $current_term -b add,above > /dev/null
 fi
 
-if [ $ask_locations = true ]
+if [ $ask_click_locations = true ]
 then
-    ask_locations $number
+    ask_click_locations $number
     X_coords=()
     Y_coords=()
     X_coords=( "${X_return[@]}" )
     Y_coords=( "${Y_return[@]}" )
+fi
+
+if [ $ask_balance_locations = true ]
+then
+    ask_balance_locations
 fi
 
 if [ $onetime_variables = false ]
