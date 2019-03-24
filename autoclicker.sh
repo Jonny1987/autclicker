@@ -39,14 +39,14 @@ ask_click_locations() {
     Y_return=()
     for num in $(seq 1 "$number_locations")
     do
-        until xinput --query-state 12 | grep -c "button\[1\]=down" > /dev/null
+        until xinput --query-state $MOUSE | grep -c "button\[1\]=down" > /dev/null
         do
             :
         done
         eval "$(xdotool getmouselocation --shell)"
         X_return[$num]=$X
         Y_return[$num]=$Y
-        until xinput --query-state 12 | grep -c "button\[1\]=up" > /dev/null
+        until xinput --query-state $MOUSE | grep -c "button\[1\]=up" > /dev/null
         do
             :
         done
@@ -62,7 +62,7 @@ pause_until_keypress() {
     while true
     do
         sleep 0.1
-        keypress=$(xinput --query-state 16 | grep -c "key\[9\]=up")
+        keypress=$(xinput --query-state $KEYBOARD | grep -c "key\[9\]=up")
         if [ "$keypress" == "1"  ]
             then
                 break
@@ -79,7 +79,7 @@ pause_until_keypress() {
 
         ## run "xinput" to get ID of your keyboard
         ## run "xinput --test <ID>" and hit Escape to check the Escape key is key[9] 
-        keypress=$(xinput --query-state 16 | grep -c "key\[9\]=down")
+        keypress=$(xinput --query-state $KEYBOARD | grep -c "key\[9\]=down")
         if [ "$keypress" == "1"  ]
         then
             escape_pause=$(($escape_pause + 1))
@@ -148,7 +148,7 @@ click_and_wait() {
 
         ## run "xinput" to get ID of your keyboard
         ## run "xinput --test <ID>" and hit Escape to check the Escape key is key[9] 
-        keypress=$(xinput --query-state 16 | grep -c "key\[9\]=down")
+        keypress=$(xinput --query-state $KEYBOARD | grep -c "key\[9\]=down")
         if [ "$keypress" == "1"  ]
         then
             escape=$(($escape + 1))
@@ -291,7 +291,15 @@ end_script() {
     fi
 }
 
+get_xinput_device() {
+    device_name=$1
+    xinput | grep -i $device_name | tail -1 | grep -oP "(?<=id=)[0-9]{1,2}"
+}
+
 trap end_script EXIT
+
+MOUSE=$(get_xinput_device mouse)
+KEYBOARD=$(get_xinput_device keyboard)
 
 add_locations=false
 ask_balance_locations=false
