@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 ## hold down Escape key to exit
 
-get_max_run_i() {
+get_max_run() {
     max_run_no=$(printf "%d\n" "${run_no[@]}" | sort -nr | head -n1)
-    max_run_no_i=$(echo "${run_no[@]/$max_run_no//}" | cut -d/ -f1 | wc -w)
-    echo $max_run_no_i
+    echo $max_run_no
 }
 
 get_grp_balance_return=""
@@ -246,16 +245,13 @@ auto_click() {
     click_loops=$((${#X_coords[@]} - 1))
     delay_loops=$(awk "BEGIN {print $delay / $loop_sleep}")
 
-    max_run_i=$(get_max_run_i)
-
     groups=${#run_no[@]}
 
     printf "\n$(echo ${run_no[@]}' ')"
     click_and_wait -i
 
-    while [ ${run_no[$max_run_i]} -gt 0 ]
+    while [ $(get_max_run) -gt 0 ]
     do
-        #save_vars
         printf "\n$(echo ${run_no[@]}' ')"
 
         click_and_wait
