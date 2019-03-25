@@ -58,12 +58,13 @@ get_click_location() {
     done
 }
 
-ask_window_icon_location() {
+ask_window_id() {
     group=$1
     echo "click on window icon for group $group"
     get_click_location
-    icon_loc_x[$group]=$X
-    icon_loc_y[$group]=$Y
+    sleep 0.1
+    id=$(xdotool getwindowfocus)
+    grp_window_ids[$group]=$id
 }
 
 ask_click_locations() {
@@ -86,13 +87,12 @@ ask_all_locations() {
 
     X_coords=()
     Y_coords=()
-    icon_log_x=()
-    icon_log_y=()
+    grp_window_ids=()
     bal_loc=()
 
     for ((g=0; g<groups; ++g))
     do
-        ask_window_icon_location $g
+        ask_window_id $g
         ask_balance_location $g
 
         grp_n=${grp_ns[$g]}
@@ -143,6 +143,11 @@ pause_until_keypress() {
     done
 }
 
+activate_grp_window() {
+    xdotool windowactivate ${grp_window_ids[$grp]}
+    sleep 0.1
+}
+
 
 click_and_wait() {
     loops_waited=0
@@ -152,8 +157,7 @@ click_and_wait() {
         group_run_no=${run_no[$grp]}
         if [ $group_run_no -gt 0 ]
         then
-            xdotool mousemove --sync "${icon_loc_x[$grp]}" "${icon_loc_y[$grp]}" click 1 > /dev/null
-            sleep 0.1
+            activate_grp_window $grp
             
             get_grp_balance $grp
             balance=$get_grp_balance_return
@@ -226,7 +230,7 @@ click_and_wait() {
 }
 
 save_vars() {
-    declare -p icon_loc_x icon_loc_y bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
+    declare -p grp_window_ids bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
 }
 
 auto_click() {
