@@ -347,6 +347,7 @@ parse_args() {
 }
 
 end_script() {
+    save_vars
     if [ $minimise_terminal = true ]
     then
         resize -s 1 80 > /dev/null
