@@ -7,30 +7,60 @@ get_max_run_i() {
     echo $max_run_no_i
 }
 
-ask_balance_locations() {
-    bal_loc_x=()
-    count=0
-
-    for ((g=0; g<groups; ++g))
+get_grp_balance() {
+    for i in {1..5}
     do
-        echo "highlight balance area for group $g"
-        read -r bal_loc[$g] < <(slop -f "%g")
-        xdotool mousemove_relative 1 1
-        balance=$(get_grp_balance $g)
+        group=$1
+        maim -g ${bal_loc[$group]} balance_$group.png -m 10
+        balance=$(./get_balance.sh balance_$group.png)
 
-        if [ -z $balance ]
+        if [ ! -z $balance ]
         then
-            let "count+=1"
-            let "g-=1"
-            echo "Please redo group $g"
+            echo $balance
+            return
         fi
+        sleep 0.5
+    done
+    echo "Cannot get balance for group $group"
+    exit
+}
+
+ask_balance_location() {
+    group=$1
+    echo "highlight balance area for group $group"
+    for i in {1..10}
+    do
+        read -r bal_loc[$group] < <(slop -f "%g")
+        xdotool mousemove_relative 1 1
+        balance=$(get_grp_balance $group)
+
+        if [ ! -z $balance ]
+        then
+            return
+        fi
+        echo "Please redo group $group"
+    done
+    exit 1
+}
+
+get_click_location() {
+    until xinput --query-state $MOUSE | grep -c "button\[1\]=down" > /dev/null
+    do
+        :
+    done
+    eval "$(xdotool getmouselocation --shell)"
+    until xinput --query-state $MOUSE | grep -c "button\[1\]=up" > /dev/null
+    do
+        :
     done
 }
 
-get_grp_balance() {
+ask_window_icon_location() {
     group=$1
-    maim -g ${bal_loc[$group]} balance_$group.png -m 10
-    echo $(./get_balance.sh balance_$group.png)
+    echo "click on window icon for group $group"
+    get_click_location
+    icon_loc_x[$group]=$X
+    icon_loc_y[$group]=$Y
 }
 
 ask_click_locations() {
@@ -39,23 +69,43 @@ ask_click_locations() {
     Y_return=()
     for num in $(seq 1 "$number_locations")
     do
-        until xinput --query-state $MOUSE | grep -c "button\[1\]=down" > /dev/null
-        do
-            :
-        done
-        eval "$(xdotool getmouselocation --shell)"
+        get_click_location
         X_return[$num]=$X
         Y_return[$num]=$Y
-        until xinput --query-state $MOUSE | grep -c "button\[1\]=up" > /dev/null
-        do
-            :
-        done
     done
 }
 
-minimise_current_window() {
-    xdotool windowminimize "$(xdotool getactivewindow)"
-    sleep 0.5
+ask_all_locations() {
+    if [ $minimise_terminal = true ]
+    then
+        minimise_terminal 2
+    fi
+
+    X_coords=()
+    Y_coords=()
+    icon_log_x=()
+    icon_log_y=()
+    bal_loc=()
+
+    for ((g=0; g<groups; ++g))
+    do
+        ask_window_icon_location $g
+        ask_balance_location $g
+
+        grp_n=${grp_ns[$g]}
+        echo "Click on autoclick locations for group $group"
+        ask_click_locations $grp_n
+
+        X_coords+=(${X_return[@]})
+        Y_coords+=(${Y_return[@]})
+    done
+}
+
+minimise_terminal() {
+    lines=$1
+    wmctrl -r $current_term -b remove,maximized_horz && wmctrl -r $current_term -b remove,maximized_vert && sleep 0.1 && resize -s $lines 80 > /dev/null
+    wmctrl -r $current_term -e 0,67,27,-1,-1
+    wmctrl -r $current_term -b add,above > /dev/null
 }
 
 pause_until_keypress() {
@@ -97,6 +147,9 @@ click_and_wait() {
     do
         grp_n=${grp_ns[$grp]}
 
+        xdotool mousemove --sync "${icon_loc_x[$grp]}" "${icon_loc_y[$grp]}" click 1 > /dev/null
+        sleep 0.1
+        
         for ((j=1; j<=$grp_n; ++j))
         do
             group_run_no=${run_no[$grp]}
@@ -112,7 +165,9 @@ click_and_wait() {
             let "index+=1"
         done
 
+        sleep 0.5
         new_balances[$grp]=$(get_grp_balance $grp)
+
         if (( $( echo "${new_balances[$grp]} < ${balances[$grp]}" | bc -l) ))
         then
             if [ ${run_no[$grp]} -gt 0 ]
@@ -158,10 +213,15 @@ click_and_wait() {
 }
 
 save_vars() {
-    declare -p bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
+    declare -p icon_loc_x icon_loc_y bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
 }
 
 auto_click() {
+    if [ $minimise_terminal = true ]
+    then
+        minimise_terminal 1
+    fi
+
     escape=0
     loop_sleep=0.1
     loops_per_second=$(echo "1 / $loop_sleep" | bc)
@@ -191,8 +251,8 @@ auto_click() {
     done
 }
 
-add_locations() {
-    ask_click_locations $1 $2
+add_click_locations() {
+    ask_click_locations $1
     X_coords=( "${X_coords[@]:0:$2}" "${X_return[@]}" "${X_coords[@]:$2}" )
     Y_coords=( "${Y_coords[@]:0:$2}" "${Y_return[@]}" "${Y_coords[@]:$2}" )
     save_vars
@@ -204,8 +264,7 @@ parse_args() {
       case "$1" in
         -g)
           shift 1
-          ask_click_locations=true
-          ask_balance_locations=true
+          ask_all_locations=true
           grp_ns=()
           total_n=0
           i=1
@@ -240,11 +299,6 @@ parse_args() {
           fi
           shift $((i - 1))
           ;;
-        -n)
-          number=$2
-          ask_click_locations=true
-          shift 2
-          ;;
         -d)
           delay=$2
           shift 2
@@ -258,7 +312,7 @@ parse_args() {
           shift
           ;;
         -a)
-          add_locations=true
+          add_click_locations=true
           add_to_group=$2
           number_locations=$3
           position_locations=$4
@@ -301,9 +355,8 @@ trap end_script EXIT
 MOUSE=$(get_xinput_device mouse)
 KEYBOARD=$(get_xinput_device keyboard)
 
-add_locations=false
-ask_balance_locations=false
-ask_click_locations=false
+add_click_locations=false
+ask_all_locations=false
 onetime_variables=false
 minimise_terminal=true
 
@@ -320,25 +373,10 @@ parse_args $@
 
 current_term=$(xdotool getwindowfocus getwindowname)
 
-if [ $minimise_terminal = true ]
+if [ $ask_all_locations = true ]
 then
-    wmctrl -r $current_term -b remove,maximized_horz && wmctrl -r $current_term -b remove,maximized_vert && sleep 0.1 && resize -s 1 20 > /dev/null
-    wmctrl -r $current_term -e 0,67,27,-1,-1
-    wmctrl -r $current_term -b add,above > /dev/null
-fi
-
-if [ $ask_click_locations = true ]
-then
-    ask_click_locations $number
-    X_coords=()
-    Y_coords=()
-    X_coords=( "${X_return[@]}" )
-    Y_coords=( "${Y_return[@]}" )
-fi
-
-if [ $ask_balance_locations = true ]
-then
-    ask_balance_locations
+    ask_all_locations=false
+    ask_all_locations
 fi
 
 if [ $onetime_variables = false ]
@@ -346,9 +384,9 @@ then
     save_vars
 fi
 
-if [ $add_locations = true ]
+if [ $add_click_locations = true ]
 then
-    add_locations $number_locations $position_locations $group_add
+    add_click_locations $number_locations $position_locations $group_add
 else
     auto_click
 fi

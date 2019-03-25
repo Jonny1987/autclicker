@@ -1,23 +1,18 @@
 #!/bin/bash
 
 get_words() {
-    convert -resize 800%  $1 _1.png
-    convert -threshold $2% _1.png _2.png
-    convert -resample 300 _2.png _3.png
-    convert -resize 25% _3.png _.png
-    tesseract --psm 7 _.png _ &> /dev/null
+    tesseract --psm 7 $1 _ &> /dev/null
     echo "$(head -n 1 _.txt)" 
 }
 
 get_balance() {
     words=$(get_words $1 $2)
-    balance=${words##*£}
-    if [[ $balance =~ ^[0-9]+\.[0-9]{2}$ ]]
+    balance=$(echo $words | grep -oP "[\d,]+\.\d{2}" | sed 's/,//g')
+    if [ -z $balance ]
     then
-        echo $balance
-        exit
+        exit 1
     fi
-    echo ""
+    echo $balance
 }
 
 get_balance_iterate() {
@@ -34,5 +29,4 @@ get_balance_iterate() {
 }
 
 # $a is the image
-get_balance_iterate $1
-
+echo $(get_balance_iterate $1)
