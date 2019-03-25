@@ -1,5 +1,4 @@
 #!/bin/bash
-rm *.png 2> /dev/null
 if [ $# -eq 1 ] && [ $1 == "-n" ]
 then
     read -r bal_loc < <(slop -f "%g")

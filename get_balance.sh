@@ -1,12 +1,7 @@
 #!/bin/bash
 
-get_words() {
-    tesseract --psm 7 $1 _ &> /dev/null
-    echo "$(head -n 1 _.txt)" 
-}
-
 get_balance() {
-    words=$(get_words $1 $2)
+    words=$(./get_words.sh $1 $2)
     balance=$(echo $words | grep -oP "[\d,]+\.\d{2}" | sed 's/,//g')
     if [ -z $balance ]
     then
@@ -21,6 +16,8 @@ get_balance_iterate() {
         balance=$(get_balance $1 $i)
         if [ "$balance" != "" ]
         then
+            threshold=$i
+            echo $threshold > threshold
             echo $balance
             exit
         fi
@@ -29,4 +26,4 @@ get_balance_iterate() {
 }
 
 # $a is the image
-echo $(get_balance_iterate $1)
+echo $(get_balance_iterate $1 30)

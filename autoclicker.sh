@@ -7,16 +7,18 @@ get_max_run_i() {
     echo $max_run_no_i
 }
 
+get_grp_balance_return=""
+
 get_grp_balance() {
     for i in {1..5}
     do
+        echo "getting grp balance"
         group=$1
         maim -g ${bal_loc[$group]} balance_$group.png -m 10
-        balance=$(./get_balance.sh balance_$group.png)
+        get_grp_balance_return=$(./get_balance.sh balance_$group.png)
 
-        if [ ! -z $balance ]
+        if [[ ! -z $get_grp_balance_return ]]
         then
-            echo $balance
             return
         fi
         sleep 0.5
@@ -32,9 +34,11 @@ ask_balance_location() {
     do
         read -r bal_loc[$group] < <(slop -f "%g")
         xdotool mousemove_relative 1 1
-        balance=$(get_grp_balance $group)
 
-        if [ ! -z $balance ]
+        get_grp_balance $group
+        balance=$get_grp_balance_return
+
+        if [[ ! -z $balance ]]
         then
             return
         fi
@@ -103,7 +107,7 @@ ask_all_locations() {
 
 minimise_terminal() {
     lines=$1
-    wmctrl -r $current_term -b remove,maximized_horz && wmctrl -r $current_term -b remove,maximized_vert && sleep 0.1 && resize -s $lines 80 > /dev/null
+    wmctrl -r $current_term -b remove,maximized_horz && wmctrl -r $current_term -b remove,maximized_vert && sleep 0.1 && resize -s 4 80 > /dev/null
     wmctrl -r $current_term -e 0,67,27,-1,-1
     wmctrl -r $current_term -b add,above > /dev/null
 }
@@ -143,6 +147,8 @@ pause_until_keypress() {
 
 click_and_wait() {
     index=0
+    loops_waited=0
+
     for grp in ${!grp_ns[@]}
     do
         grp_n=${grp_ns[$grp]}
@@ -150,6 +156,9 @@ click_and_wait() {
         xdotool mousemove --sync "${icon_loc_x[$grp]}" "${icon_loc_y[$grp]}" click 1 > /dev/null
         sleep 0.1
         
+        get_grp_balance $grp
+        balance=$get_grp_balance_return
+
         for ((j=1; j<=$grp_n; ++j))
         do
             group_run_no=${run_no[$grp]}
@@ -165,10 +174,16 @@ click_and_wait() {
             let "index+=1"
         done
 
+        echo 3333333333
         sleep 0.5
-        new_balances[$grp]=$(get_grp_balance $grp)
+        get_grp_balance $grp
+        new_balance=$get_grp_balance_return
+        #echo threshold: $(head -n 1 threshold)
 
-        if (( $( echo "${new_balances[$grp]} < ${balances[$grp]}" | bc -l) ))
+        echo 44444444
+        echo $new_balance
+        echo $balance
+        if (( $( echo "$new_balance < $balance" | bc -l) ))
         then
             if [ ${run_no[$grp]} -gt 0 ]
             then
@@ -194,22 +209,24 @@ click_and_wait() {
         loops_waited=$(($loops_waited + 1))
     done
 
-        if [ $escape -eq 10 ]
-        then
-            escape=0
-            pause_until_keypress
-            break
-        fi
+    if [ $escape -eq 10 ]
+    then
+        escape=0
+        pause_until_keypress
+        break
+    fi
 
-        ## run "xinput" to get ID of your keyboard
-        ## run "xinput --test <ID>" and hit Escape to check the Escape key is key[9] 
-        keypress=$(xinput --query-state $KEYBOARD | grep -c "key\[9\]=down")
-        if [ "$keypress" == "1"  ]
-        then
-            escape=$(($escape + 1))
-        else
-            escape=0
-        fi
+    ## run "xinput" to get ID of your keyboard
+    ## run "xinput --test <ID>" and hit Escape to check the Escape key is key[9] 
+    keypress=$(xinput --query-state $KEYBOARD | grep -c "key\[9\]=down")
+    if [ "$keypress" == "1"  ]
+    then
+        escape=$(($escape + 1))
+    else
+        escape=0
+    fi
+
+    initial_balance=false
 }
 
 save_vars() {
@@ -231,22 +248,16 @@ auto_click() {
 
     max_run_i=$(get_max_run_i)
 
-    balances=() 
-
     groups=${#run_no[@]}
-    for ((g=0; g<groups; ++g))
-    do
-        balances[$g]=$(get_grp_balance $g)
-    done
 
-    new_balances=()
+    printf "\n$(echo ${run_no[@]}' ')"
+    click_and_wait -i
 
     while [ ${run_no[$max_run_i]} -gt 0 ]
     do
         #save_vars
         printf "\n$(echo ${run_no[@]}' ')"
 
-        loops_waited=0
         click_and_wait
     done
 }
