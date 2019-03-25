@@ -12,7 +12,6 @@ get_grp_balance_return=""
 get_grp_balance() {
     for i in {1..5}
     do
-        echo "getting grp balance"
         group=$1
         maim -g ${bal_loc[$group]} balance_$group.png -m 10
         get_grp_balance_return=$(./get_balance.sh balance_$group.png)
@@ -146,48 +145,45 @@ pause_until_keypress() {
 
 
 click_and_wait() {
-    index=0
     loops_waited=0
 
     for grp in ${!grp_ns[@]}
     do
-        grp_n=${grp_ns[$grp]}
+        group_run_no=${run_no[$grp]}
+        if [ $group_run_no -gt 0 ]
+        then
+            xdotool mousemove --sync "${icon_loc_x[$grp]}" "${icon_loc_y[$grp]}" click 1 > /dev/null
+            sleep 0.1
+            
+            get_grp_balance $grp
+            balance=$get_grp_balance_return
 
-        xdotool mousemove --sync "${icon_loc_x[$grp]}" "${icon_loc_y[$grp]}" click 1 > /dev/null
-        sleep 0.1
-        
-        get_grp_balance $grp
-        balance=$get_grp_balance_return
+            grp_n=${grp_ns[$grp]}
+            grp_start=${grp_starts[$grp]}
+            grp_end=$((grp_start + grp_n))
 
-        for ((j=1; j<=$grp_n; ++j))
-        do
-            group_run_no=${run_no[$grp]}
-
-            if [ $group_run_no -gt 0 ]
-            then
+            for ((index=grp_start; index<grp_end; ++index))
+            do
                 radius=5
                 mod=$((radius + 1))
                 this_x=$((${X_coords[$index]} + RANDOM % mod - radius / 2))
                 this_y=$((${Y_coords[$index]} + RANDOM % mod - radius / 2))
                 xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
-            fi
-            let "index+=1"
-        done
+            done
 
-        echo 3333333333
-        sleep 0.5
-        get_grp_balance $grp
-        new_balance=$get_grp_balance_return
-        #echo threshold: $(head -n 1 threshold)
+            sleep 0.5
+            get_grp_balance $grp
+            new_balance=$get_grp_balance_return
+            #echo threshold: $(head -n 1 threshold)
 
-        echo 44444444
-        echo $new_balance
-        echo $balance
-        if (( $( echo "$new_balance < $balance" | bc -l) ))
-        then
-            if [ ${run_no[$grp]} -gt 0 ]
+            #echo $new_balance
+            #echo $balance
+            if (( $( echo "$new_balance < $balance" | bc -l) ))
             then
-                let "run_no[grp]-=1"
+                if [ ${run_no[$grp]} -gt 0 ]
+                then
+                    let "run_no[grp]-=1"
+                fi
             fi
         fi
     done
@@ -277,12 +273,14 @@ parse_args() {
           shift 1
           ask_all_locations=true
           grp_ns=()
+          grp_starts=()
           total_n=0
           i=1
           while [[ ${!i} =~ ^[0-9]+$ ]]
           do
               grp_n=${!i}
               grp_ns+=($grp_n)
+              grp_starts+=($total_n)
               let "total_n+=grp_n"
               let "i+=1"
           done
