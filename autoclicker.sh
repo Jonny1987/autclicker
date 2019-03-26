@@ -183,10 +183,7 @@ click_and_wait() {
             sleep 0.5
             get_grp_balance $grp
             new_balance=$get_grp_balance_return
-            #echo threshold: $(head -n 1 threshold)
 
-            #echo $new_balance
-            #echo $balance
             if (( $( echo "$new_balance < $balance" | bc -l) ))
             then
                 if [ ${run_no[$grp]} -gt 0 ]
@@ -275,7 +272,7 @@ parse_args() {
     PARAMS=""
     while (( "$#" )); do
       case "$1" in
-        -g)
+        -c)
           shift 1
           ask_all_locations=true
           grp_ns=()
@@ -295,23 +292,32 @@ parse_args() {
 
           shift $((i - 1))
           ;;
-        -r)
+        -w)
           shift 1
-          run_no=()
+          wagering=()
+
           i=1
-          while [[ ${!i} =~ ^[0-9]+$ ]]
+          while [[ ${!i} =~ ^[0-9]+(\.[0-9]{1,2})?$ ]]
           do
-              grp_r=${!i}
-              run_no+=($grp_r)
+              grp_w=${!i}
+              wagering+=($grp_w)
               let "i+=1"
           done
 
-          groups=${#run_no[@]}
-          if [ $groups -ne ${#grp_ns[@]} ]
-          then
-              echo "number of digits in the -r arg must match number of digits in the -g arg"
-              exit
-          fi
+          shift $((i - 1))
+          ;;
+        -b)
+          shift 1
+          bet_sizes=()
+
+          i=1
+          while [[ ${!i} =~ ^[0-9]+(\.[0-9]{1,2})?$ ]]
+          do
+              grp_b=${!i}
+              bet_sizes+=($grp_b)
+              let "i+=1"
+          done
+
           shift $((i - 1))
           ;;
         -d)
@@ -350,6 +356,26 @@ parse_args() {
     # set positional arguments in their proper place
     eval set -- "$PARAMS"
 
+
+    if [[ ${#wagering[@]} -ne 0 ]] && [[ ${#bet_sizes[@]} -ne 0 ]] && [[ ${#grp_ns[@]} -ne 0 ]]
+    then
+        if [ ${#wagering[@]} -ne ${#bet_sizes[@]} ] || [ ${#wagering[@]} -ne ${#grp_ns[@]} ]
+        then
+            echo "wagerings (-w), bet sizes (-b) and group click (-g) are not all the same length"
+            exit 1
+        fi
+
+        run_no=()
+        for i in ${!wagering[@]}
+        do
+          grp_w=${wagering[$i]}
+          grp_b=${bet_sizes[$i]}
+          grp_r=$(echo "$grp_w / $grp_b + 1" | bc)
+          run_no+=($grp_r)
+        done
+
+        groups=${#run_no[@]}
+    fi
 }
 
 end_script() {
