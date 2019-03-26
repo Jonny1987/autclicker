@@ -3,7 +3,7 @@
 get_balance() {
     words=$(./get_words.sh $1 $2)
     balance=$(echo $words | grep -oP "[\d,]+\.\d{2}" | sed 's/,//g')
-    if [ -z $balance ]
+    if [[ -z $balance ]]
     then
         exit 1
     fi
@@ -11,13 +11,13 @@ get_balance() {
 }
 
 get_balance_iterate() {
-    for i in {30..40}
+    for i in {30..35}
     do
         balance=$(get_balance $1 $i)
-        if [ "$balance" != "" ]
+        if [[ ! -z $balance ]]
         then
             threshold=$i
-            echo $threshold > threshold
+            echo $threshold >> threshold
             echo $balance
             exit
         fi
@@ -26,4 +26,4 @@ get_balance_iterate() {
 }
 
 # $a is the image
-echo $(get_balance_iterate $1 30)
+echo $(get_balance_iterate $1)
