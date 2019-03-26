@@ -9,20 +9,21 @@ get_max_run() {
 get_grp_balance_return=""
 
 get_grp_balance() {
-    for i in {1..5}
+    group=$1
+    for i in {1..3}
     do
-        group=$1
         maim -g ${bal_loc[$group]} balance_$group.png -m 10
         get_grp_balance_return=$(./get_balance.sh balance_$group.png)
 
         if [[ ! -z $get_grp_balance_return ]]
         then
+            unset "errors[group]"
             return
         fi
         sleep 0.5
     done
     echo "Cannot get balance for group $group"
-    exit
+    let "errors[group]+=1"
 }
 
 ask_balance_location() {
@@ -156,6 +157,11 @@ click_and_wait() {
         group_run_no=${run_no[$grp]}
         if [ $group_run_no -gt 0 ]
         then
+            if [[ ${errors[grp]} -ge 6 ]]
+            then
+                echo "Ignoring group due to repeated errors reading balance"
+                continue
+            fi
             activate_grp_window $grp
             
             get_grp_balance $grp
@@ -369,6 +375,8 @@ add_click_locations=false
 ask_all_locations=false
 onetime_variables=false
 minimise_terminal=true
+
+errors=()
 
 script_dir="${BASH_SOURCE%/*}/"
 
