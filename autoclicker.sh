@@ -15,6 +15,7 @@ get_grp_balance() {
         maim -g ${bal_loc[$group]} balance_$group.png -m 10
         get_grp_balance_return=$(./get_balance.sh balance_$group.png)
 
+        echo $get_grp_balance_return
         if [[ ! -z $get_grp_balance_return ]]
         then
             unset "errors[group]"
@@ -39,6 +40,7 @@ ask_balance_location() {
 
         if [[ ! -z $balance ]]
         then
+            echo "Balance is $balance"
             return
         fi
         echo "Please redo group $group"
@@ -47,10 +49,18 @@ ask_balance_location() {
 }
 
 get_click_location() {
-    until xinput --query-state $MOUSE | grep -c "button\[1\]=down" > /dev/null
+    until { xinput --query-state $MOUSE && xinput --query-state $KEYBOARD; } | grep -c "button\[1\]=down\|key\[36\]=down" > /dev/null
     do
         :
     done
+    if [[ $(xinput --query-state $KEYBOARD | grep -c "key\[36\]=down") -eq 1 ]]
+    then
+        until xinput --query-state $KEYBOARD | grep -c "key\[36\]=up" > /dev/null
+        do
+            :
+        done
+        return 1
+    fi
     eval "$(xdotool getmouselocation --shell)"
     until xinput --query-state $MOUSE | grep -c "button\[1\]=up" > /dev/null
     do
@@ -74,6 +84,10 @@ ask_click_locations() {
     for num in $(seq 1 "$number_locations")
     do
         get_click_location
+        if [ $? -eq 1 ]
+        then
+            return 1
+        fi
         X_return[$num]=$X
         Y_return[$num]=$Y
     done
@@ -93,11 +107,17 @@ ask_all_locations() {
     for ((g=0; g<groups; ++g))
     do
         ask_window_id $g
-        ask_balance_location $g
 
-        grp_n=${grp_ns[$g]}
-        echo "Click on autoclick locations for group $group"
-        ask_click_locations $grp_n
+        e_code=1
+        while [ $e_code -eq 1 ]
+        do
+            ask_balance_location $g
+
+            grp_n=${grp_ns[$g]}
+            echo "Press Enter is this balance is incorrect. Otherwise, click on autoclick locations for group $group"
+            ask_click_locations $grp_n
+            e_code=$?
+        done
 
         X_coords+=(${X_return[@]})
         Y_coords+=(${Y_return[@]})
