@@ -10,19 +10,17 @@ get_grp_balance_return=""
 
 get_grp_balance() {
     group=$1
-    for i in {1..3}
-    do
-        maim -g ${bal_loc[$group]} balance_$group.png -m 10
-        get_grp_balance_return=$(./get_balance.sh balance_$group.png)
+    prev_balance=$2
 
-        echo $get_grp_balance_return
-        if [[ ! -z $get_grp_balance_return ]]
-        then
-            unset "errors[group]"
-            return
-        fi
-        sleep 0.5
-    done
+    maim -g ${bal_loc[$group]} balance_$group.png -m 10
+    get_grp_balance_return=$(./get_balance.sh balance_$group.png ${bet_sizes[$group]} $prev_balance)
+
+    if [[ ! -z $get_grp_balance_return ]]
+    then
+        unset "errors[group]"
+        return
+    fi
+
     echo "Cannot get balance for group $group"
     let "errors[group]+=1"
 }
@@ -186,6 +184,8 @@ click_and_wait() {
             
             get_grp_balance $grp
             balance=$get_grp_balance_return
+            echo "group $grp"
+            echo "    start: $balance"
 
             grp_n=${grp_ns[$grp]}
             grp_start=${grp_starts[$grp]}
@@ -200,9 +200,11 @@ click_and_wait() {
                 xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
             done
 
-            sleep 0.5
-            get_grp_balance $grp
+            sleep 1.5
+            get_grp_balance $grp $balance
             new_balance=$get_grp_balance_return
+
+            echo "    end: $new_balance"
 
             if (( $( echo "$new_balance < $balance" | bc -l) ))
             then
