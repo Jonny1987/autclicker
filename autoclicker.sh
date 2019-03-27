@@ -180,6 +180,12 @@ click_and_wait() {
                 echo "Ignoring group due to repeated errors reading balance"
                 continue
             fi
+
+            if [[ ${no_money[grp]} -eq 1 ]]
+            then
+                echo "Ignoring group due to low balance"
+                continue
+            fi
             activate_grp_window $grp
             
             get_grp_balance $grp
@@ -208,6 +214,10 @@ click_and_wait() {
 
             if (( $( echo "$new_balance < $balance" | bc -l) ))
             then
+                if (( $( echo "$new_balance < ${bet_sizes[$grp]}" | bc -l) ))
+                then
+                    no_money[$grp]=1
+                fi
                 if [ ${run_no[$grp]} -gt 0 ]
                 then
                     let "run_no[grp]-=1"
@@ -254,7 +264,7 @@ click_and_wait() {
 }
 
 save_vars() {
-    declare -p grp_window_ids bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
+    declare -p bet_sizes grp_window_ids bal_loc grp_ns run_no delay X_coords Y_coords > $vars_path
 }
 
 auto_click() {
@@ -425,6 +435,7 @@ onetime_variables=false
 minimise_terminal=true
 
 errors=()
+no_money=()
 
 script_dir="${BASH_SOURCE%/*}/"
 
