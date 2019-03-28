@@ -159,9 +159,33 @@ auto_click() {
 }
 
 add_locations() {
-    ask_locations $1 $2
-    X_coords=( "${X_coords[@]:0:$2}" "${X_return[@]}" "${X_coords[@]:$2}" )
-    Y_coords=( "${Y_coords[@]:0:$2}" "${Y_return[@]}" "${Y_coords[@]:$2}" )
+    grp=$1
+    position=$2
+    number=$3
+    grp_n=${grp_ns[$grp]}
+
+    if [ $position -ge $grp_n ]
+    then
+        echo "position given is too high for this group"
+        exit 1
+    fi
+
+    ask_locations $number
+
+    grp_start=${grp_starts[$grp]}
+    insert_at=$(($grp_start + $position))
+
+    X_coords=( "${X_coords[@]:0:$insert_at}" "${X_return[@]}" "${X_coords[@]:$insert_at}" )
+    Y_coords=( "${Y_coords[@]:0:$insert_at}" "${Y_return[@]}" "${Y_coords[@]:$insert_at}" )
+
+    let "grp_ns[grp]+=number"
+
+    groups=${#grp_ns[@]}
+    for ((g=grp+1; g<groups; ++g))
+    do
+        let "grp_starts[g]+=number"
+    done
+
     save_vars
 }
 
@@ -227,8 +251,8 @@ parse_args() {
         -a)
           add_locations=true
           add_to_group=$2
-          number_locations=$3
-          position_locations=$4
+          position_locations=$3
+          number_locations=$4
           shift 4
           ;;
         --) # end argument parsing
@@ -248,6 +272,13 @@ parse_args() {
     # set positional arguments in their proper place
     eval set -- "$PARAMS"
 
+    grp_starts=()
+    total_n=0
+    for n in ${grp_ns[@]}
+    do
+        grp_starts+=($total_n)
+        let "total_n+=n"
+    done
 }
 
 end_script() {
@@ -301,7 +332,7 @@ fi
 
 if [ $add_locations = true ]
 then
-    add_locations $number_locations $position_locations $group_add
+    add_locations $add_to_group $position_locations $number_locations
 else
     auto_click
 fi
