@@ -173,18 +173,15 @@ add_locations() {
     ask_locations $number
 
     grp_start=${grp_starts[$grp]}
+    echo grp_start $grp_start
+    echo position $position
     insert_at=$(($grp_start + $position))
+    echo insert_at $insert_at
 
     X_coords=( "${X_coords[@]:0:$insert_at}" "${X_return[@]}" "${X_coords[@]:$insert_at}" )
     Y_coords=( "${Y_coords[@]:0:$insert_at}" "${Y_return[@]}" "${Y_coords[@]:$insert_at}" )
 
     let "grp_ns[grp]+=number"
-
-    groups=${#grp_ns[@]}
-    for ((g=grp+1; g<groups; ++g))
-    do
-        let "grp_starts[g]+=number"
-    done
 
     save_vars
 }
@@ -213,10 +210,6 @@ change_clicks() {
     Y_coords=( "${Y_coords[@]:0:$before_insert}" "${Y_return[@]}" "${Y_coords[@]:$after_insert}" )
 
     grp_ns[$grp]=$num
-
-    echo grp_starts $grp_starts
-    calculate_grp_starts
-    echo grp_starts $grp_starts
 }
 
 parse_args() {
@@ -318,7 +311,7 @@ parse_args() {
     # set positional arguments in their proper place
     eval set -- "$PARAMS"
 
-    calculate_grp_starts
+    echo grp_starts ${grp_starts[@]}
 }
 
 end_script() {
@@ -346,7 +339,11 @@ then
     source $vars_path
 fi
 
+calculate_grp_starts
+
 parse_args $@
+
+calculate_grp_starts
 
 current_term=$(xdotool getwindowfocus getwindowname)
 
