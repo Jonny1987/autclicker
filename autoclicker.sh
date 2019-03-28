@@ -189,6 +189,36 @@ add_locations() {
     save_vars
 }
 
+calculate_grp_starts() {
+    grp_starts=()
+    total_n=0
+    for n in ${grp_ns[@]}
+    do
+        grp_starts+=($total_n)
+        let "total_n+=n"
+    done
+}
+
+change_clicks() {
+    grp=$1
+    num=$2
+
+    ask_locations $num
+
+    grp_n=${grp_ns[$grp]}
+    before_insert=${grp_starts[$grp]}
+    after_insert=$(($before_insert + $grp_n))
+
+    X_coords=( "${X_coords[@]:0:$before_insert}" "${X_return[@]}" "${X_coords[@]:$after_insert}" )
+    Y_coords=( "${Y_coords[@]:0:$before_insert}" "${Y_return[@]}" "${Y_coords[@]:$after_insert}" )
+
+    grp_ns[$grp]=$num
+
+    echo grp_starts $grp_starts
+    calculate_grp_starts
+    echo grp_starts $grp_starts
+}
+
 parse_args() {
     PARAMS=""
     while (( "$#" )); do
@@ -230,6 +260,20 @@ parse_args() {
           fi
           shift $((i - 1))
           ;;
+        -cr)
+          no_autoclick=true
+          grp=$2
+          runs=$3
+          run_no[$grp]=$runs
+          shift 3
+          ;;
+        -cg)
+          no_autoclick=true
+          grp=$2
+          num=$3
+          change_clicks $grp $num
+          shift 3
+          ;;
         -n)
           number=$2
           ask_locations=true
@@ -249,10 +293,12 @@ parse_args() {
           shift
           ;;
         -a)
-          add_locations=true
+          no_autoclick=true
           add_to_group=$2
           position_locations=$3
           number_locations=$4
+
+          add_locations $add_to_group $position_locations $number_locations
           shift 4
           ;;
         --) # end argument parsing
@@ -272,13 +318,7 @@ parse_args() {
     # set positional arguments in their proper place
     eval set -- "$PARAMS"
 
-    grp_starts=()
-    total_n=0
-    for n in ${grp_ns[@]}
-    do
-        grp_starts+=($total_n)
-        let "total_n+=n"
-    done
+    calculate_grp_starts
 }
 
 end_script() {
@@ -295,6 +335,7 @@ add_locations=false
 ask_locations=false
 onetime_variables=false
 minimise_terminal=true
+no_autoclick=false
 
 script_dir="${BASH_SOURCE%/*}/"
 
@@ -330,10 +371,8 @@ then
     save_vars
 fi
 
-if [ $add_locations = true ]
+if [ $no_autoclick = false ]
 then
-    add_locations $add_to_group $position_locations $number_locations
-else
     auto_click
 fi
 
