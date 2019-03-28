@@ -263,7 +263,7 @@ trap end_script EXIT
 add_locations=false
 ask_locations=false
 onetime_variables=false
-minimise_terminal=false
+minimise_terminal=true
 
 script_dir="${BASH_SOURCE%/*}/"
 
