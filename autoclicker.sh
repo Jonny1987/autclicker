@@ -345,6 +345,11 @@ parse_args $@
 
 calculate_grp_starts
 
+if [ -z $delay ]
+then
+    delay=2
+fi
+
 if [ $minimise_terminal = true ]
 then
     wmctrl -r $current_term -b remove,maximized_horz && wmctrl -r $current_term -b remove,maximized_vert && sleep 0.1 && resize -s 1 20 > /dev/null
