@@ -164,7 +164,7 @@ add_locations() {
     number=$3
     grp_n=${grp_ns[$grp]}
 
-    if [ $position -ge $grp_n ]
+    if [ $position -gt $grp_n ]
     then
         echo "position given is too high for this group"
         exit 1
@@ -310,8 +310,6 @@ parse_args() {
     done
     # set positional arguments in their proper place
     eval set -- "$PARAMS"
-
-    echo grp_starts ${grp_starts[@]}
 }
 
 end_script() {
@@ -339,13 +337,13 @@ then
     source $vars_path
 fi
 
+current_term=$(xdotool getwindowfocus getwindowname)
+
 calculate_grp_starts
 
 parse_args $@
 
 calculate_grp_starts
-
-current_term=$(xdotool getwindowfocus getwindowname)
 
 if [ $minimise_terminal = true ]
 then
