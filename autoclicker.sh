@@ -39,7 +39,7 @@ pause_until_keypress() {
     while true
     do
         sleep 0.1
-        keypress=$(xinput --query-state 16 | grep -c "key\[9\]=up")
+        keypress=$(xinput --query-state 11 | grep -c "key\[9\]=up")
         if [ "$keypress" == "1"  ]
             then
                 break
@@ -56,7 +56,7 @@ pause_until_keypress() {
 
         ## run "xinput" to get ID of your keyboard
         ## run "xinput --test <ID>" and hit Escape to check the Escape key is key[9] 
-        keypress=$(xinput --query-state 16 | grep -c "key\[9\]=down")
+        keypress=$(xinput --query-state 11 | grep -c "key\[9\]=down")
         if [ "$keypress" == "1"  ]
         then
             escape_pause=$(($escape_pause + 1))
@@ -87,6 +87,23 @@ click_and_wait() {
                 xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
             fi
             let "index+=1"
+
+            keypress=$(xinput --query-state 11 | grep -c "key\[9\]=up")
+            if [ "$keypress" == "1"  ]
+            then
+                can_pause=true
+            fi
+
+            if [ $can_pause = true ]
+            then
+                keypress=$(xinput --query-state 11 | grep -c "key\[9\]=down")
+                if [ "$keypress" == "1"  ]
+                then
+                    can_pause=false
+                    pause_until_keypress
+                    break
+                fi
+            fi
         done
     done
 
@@ -105,24 +122,26 @@ click_and_wait() {
         fi
         sleep $loop_sleep 
         loops_waited=$(($loops_waited + 1))
-    done
 
-        if [ $escape -eq 10 ]
+        keypress=$(xinput --query-state 11 | grep -c "key\[9\]=up")
+        if [ "$keypress" == "1"  ]
         then
-            escape=0
-            pause_until_keypress
-            break
+            can_pause=true
         fi
 
         ## run "xinput" to get ID of your keyboard
         ## run "xinput --test <ID>" and hit Escape to check the Escape key is key[9] 
-        keypress=$(xinput --query-state 16 | grep -c "key\[9\]=down")
-        if [ "$keypress" == "1"  ]
+        if [ $can_pause = true ]
         then
-            escape=$(($escape + 1))
-        else
-            escape=0
+            keypress=$(xinput --query-state 11 | grep -c "key\[9\]=down")
+            if [ "$keypress" == "1"  ]
+            then
+                can_pause=false
+                pause_until_keypress
+                break
+            fi
         fi
+    done
 }
 
 save_vars() {
@@ -130,7 +149,6 @@ save_vars() {
 }
 
 auto_click() {
-    escape=0
     loop_sleep=0.1
     loops_per_second=$(echo "1 / $loop_sleep" | bc)
     button_duration=1
@@ -139,6 +157,7 @@ auto_click() {
 
     max_run_i=$(get_max_run_i)
 
+    can_pause=false
     while [ ${run_no[$max_run_i]} -gt  0 ]
     do
         save_vars
