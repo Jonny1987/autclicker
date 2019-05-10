@@ -49,7 +49,7 @@ pause_until_keypress() {
     escape_pause=0
     while true
     do
-        if [ $escape_pause -eq 10 ]
+        if [ $escape_pause -eq 12 ]
         then
             break
         fi
@@ -81,9 +81,9 @@ click_and_wait() {
             if [ $group_run_no -gt 0 ]
             then
                 radius=5
-                mod=$((radius + 1))
-                this_x=$((${X_coords[$index]} + RANDOM % mod - radius / 2))
-                this_y=$((${Y_coords[$index]} + RANDOM % mod - radius / 2))
+                mod=$((2 * radius + 1))
+                this_x=$((${X_coords[$index]} + click_offset % mod - radius))
+                this_y=$((${Y_coords[$index]} + click_offset % mod - radius))
                 xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
             fi
             let "index+=1"
@@ -105,19 +105,25 @@ click_and_wait() {
                 fi
             fi
         done
+        let "click_offset+=1"
     done
+
+    delay_rem=$(echo "$delay % 1" | bc)
+    rem_loops=$(echo "$delay_rem / $loop_sleep" | bc)
 
     for ((i=1; i<=$delay_loops; ++i))
     do
-        wmctrl -a $current_term
-        remainder=$(echo "$loops_waited % $loops_per_second" | bc)
-        if [ $remainder -eq 0 ]
+        if [ $loops_waited -ge $rem_loops ]
         then
-            if [ $loops_waited -eq 0 ]
+            wmctrl -a $current_term
+            if [ $(echo "$loops_waited % $loops_per_second" | bc) -eq $rem_loops ]
             then
-                printf $delay
-            else
-                printf $(($delay - $loops_waited / $loops_per_second))
+                if [ $loops_waited -eq 0 ]
+                then
+                    printf $delay
+                else
+                    printf $(echo "$delay - $loops_waited / $loops_per_second" | bc | cut -d"." -f 1)
+                fi
             fi
         fi
         sleep $loop_sleep 
@@ -153,11 +159,13 @@ auto_click() {
     loops_per_second=$(echo "1 / $loop_sleep" | bc)
     button_duration=1
     click_loops=$((${#X_coords[@]} - 1))
-    delay_loops=$(awk "BEGIN {print $delay / $loop_sleep}")
+    delay_loops=$(echo "$delay / $loop_sleep" | bc)
 
     max_run_i=$(get_max_run_i)
 
     can_pause=false
+    click_offset=0
+
     while [ ${run_no[$max_run_i]} -gt  0 ]
     do
         save_vars
