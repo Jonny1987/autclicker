@@ -80,10 +80,8 @@ click_and_wait() {
 
             if [ $group_run_no -gt 0 ]
             then
-                radius=5
-                mod=$((2 * radius + 1))
-                this_x=$((${X_coords[$index]} + click_offset % mod - radius))
-                this_y=$((${Y_coords[$index]} + click_offset % mod - radius))
+                this_x=$((${X_coords[$index]} + click_offset - radius))
+                this_y=$((${Y_coords[$index]} + click_offset - radius))
                 xdotool mousemove --sync "$this_x" "$this_y" click 1 > /dev/null
             fi
             let "index+=1"
@@ -105,7 +103,6 @@ click_and_wait() {
                 fi
             fi
         done
-        let "click_offset+=1"
     done
 
     delay_rem=$(echo "$delay % 1" | bc)
@@ -165,6 +162,8 @@ auto_click() {
 
     can_pause=false
     click_offset=0
+    radius=5
+    mod=$((2 * radius + 1))
 
     while [ ${run_no[$max_run_i]} -gt  0 ]
     do
@@ -174,6 +173,8 @@ auto_click() {
 
         loops_waited=0
         click_and_wait
+        let "click_offset+=1"
+        click_offset=$((click_offset % mod))
 
         for i in ${!run_no[@]}
         do
