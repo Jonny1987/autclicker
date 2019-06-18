@@ -57,5 +57,5 @@ This will remove all existing clicks and replace them with new ones.
 where
 
 * G is the number of the group (zero indexed)
-* N is the new number of cycles for that groupo
+* N is the new number of cycles for that group
 
